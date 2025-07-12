@@ -1,0 +1,75 @@
+Here’s a **precise, no-BS technical prompt** you can give to your AI agent on Replit. It explains the mission clearly, tells it what to do, what **not** to break, and how to verify the fix.
+
+---
+
+### ✅ TECHNICAL PROMPT FOR AGENT (SEO PRERENDERING FIX)
+
+---
+
+**Mission:**  
+Our site `https://asiatek.pro` is currently rendered 100% client-side, which means SEO is broken — search engines see only a blank `<div id="root"></div>`. We need you to **enable static prerendering** using `vite-plugin-ssg`, but **without breaking any functionality or styling.**
+
+---
+
+### 📦 What you need to do:
+
+1. **Install required packages:**
+```bash
+npm install vite-plugin-ssg @vueuse/head
+```
+
+2. **Update `vite.config.ts`:**  
+Add and configure `vite-plugin-ssg`. Ensure it's used only in **production** builds.
+
+3. **Refactor the app entry point** to support SSG:  
+You may need to wrap routing and app mounting inside a factory like:
+```ts
+export const createApp = () => {
+  const app = createApp(App)
+  const router = createRouter()
+  app.use(router)
+  return { app, router }
+}
+```
+
+4. **Ensure all route pages (e.g., `/`, `/zapchasti`, `/zapchasti/sitrak`) are statically generated.**
+
+5. **Generate HTML files via SSG:**
+```bash
+npm run build
+# or custom: vite-ssg build
+```
+
+6. **Verify the output:**  
+Each important route should produce an HTML file:
+```
+dist/index.html
+dist/zapchasti/index.html
+dist/zapchasti/sitrak/index.html
+```
+
+7. **Don’t touch or break:**
+- Any existing PWA service worker logic  
+- Routing logic (including fallback routes)  
+- App styling, layout, or animations  
+- Meta tags or icon links  
+- Email/Supabase/Webhook integrations  
+- Production build & deploy scripts
+
+---
+
+### ✅ After finishing, confirm these:
+
+- View-source of brand pages shows real content (`<title>`, `<h1>`, etc.), not just an empty root div
+- Rich Results Test for `/zapchasti/sitrak` passes for `Product`, `Breadcrumb`, and `AutoPartsStore`
+- `main.tsx` and all assets load with no 404s
+- The app looks and works **identically** to before
+
+---
+
+> **DO NOT deploy until everything is verified locally or in staging.**  
+> You break production, you fix it.
+
+---
+
+Let me know once it’s ready — I’ll test the view-source and run rich results myself.

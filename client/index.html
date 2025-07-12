@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1"
+    />
+    <meta name="theme-color" content="#0044ff" />
+    <meta name="description" content="Asiatek - заказ автозапчастей для иномарок. Доставка по России и СНГ." />
+    <meta name="language" content="Russian" />
+    <meta name="yandex-verification" content="REPLACE_WITH_ACTUAL_YANDEX_VERIFICATION_TOKEN" />
+    <link rel="manifest" href="/manifest.json" crossorigin="use-credentials" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <link rel="icon" sizes="192x192" href="/icons/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        let refreshing = false;
+        
+        // Handle update found
+        function handleUpdate(registration) {
+          // When the SW detects an update, show a notification
+          if (registration.waiting) {
+            // If there's a service worker waiting, update immediately
+            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+        }
+        
+        // Detect controller change and reload the page
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!refreshing) {
+            refreshing = true;
+            window.location.reload();
+          }
+        });
+        
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+              console.log('ServiceWorker registration successful with scope: ', registration.scope);
+              
+              // Check for updates on initial load
+              registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    handleUpdate(registration);
+                  }
+                });
+              });
+              
+              // Check if there's an update waiting on load
+              if (registration.waiting) {
+                handleUpdate(registration);
+              }
+            })
+            .catch(error => {
+              console.log('ServiceWorker registration failed: ', error);
+            });
+            
+          // Check for updates every 60 minutes
+          setInterval(() => {
+            navigator.serviceWorker.getRegistration().then(registration => {
+              if (registration) registration.update();
+            });
+          }, 60 * 60 * 1000);
+        });
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,122 @@
+### Why the site is blank right now
+
+1. **`index.html` still loads `/src/main.tsx`,** but during the last edits that file was renamed / removed (you created `entry‑client.tsx`).  
+   → Browser gets a 404 for the JS bundle, React never mounts, so you see a white page.
+
+2. The “quick SSR middleware” you added *writes its own HTML* but does **not** inject any hydration script. Even if the bundle were present, the HTML would never become interactive.
+
+3. The manifest warnings you saw are *not* causing the white page—they only affect the PWA install banner.
+
+---
+
+## Fastest way to get back to a working, crawlable site
+
+Below is a **copy‑paste checklist**. Follow the bullets in order; each fixes a specific break.
+
+---
+
+### ① Restore a client entry that really exists
+
+Create **`client/src/main.tsx`** (keep `entry‑client.tsx` if you like, but the HTML must reference a real file):
+
+```tsx
+import React from "react";
+import { createRoot } from "react-dom/client";
+import App from "./App";
+
+// Vite's default mount
+createRoot(document.getElementById("root")!).render(<App />);
+
+// ↓ This export lets vite‑ssg prerender the same tree
+export const createApp = () => <App />;
+```
+
+In **`index.html`** change the script tag:
+
+```html
+<script type="module" src="/src/main.tsx"></script>
+```
+
+*(now the file exists again, bundle loads, UI returns)*
+
+---
+
+### ② Remove the “custom SSR middleware” for now
+
+Open **`server/index.ts`** and comment‑out or delete the `app.use(ssrMiddleware)` line you added.  
+Keep the rest of your Express routes; they served fine before.
+
+*(Once the site works again we can revisit true SSR; right now stability first.)*
+
+---
+
+### ③ Add reliable prerender (no config edits)
+
+1. **Install**  
+   ```bash
+   npm i -D vite-plugin-ssg @vueuse/head
+   ```
+
+2. **Tiny tweak in `vite.config.ts`**  
+   ```ts
+   import { ViteSSG } from 'vite-plugin-ssg';
+
+   export default defineConfig({
+     plugins: [react(), ViteSSG()]
+   });
+   ```
+
+   *If you truly cannot edit the file in‑place, create `vite.config.ssg.ts` with that content; Vite picks up the `.ts` files alphabetically.*
+
+3. **Build script** in `package.json`:
+
+   ```json
+   "scripts": {
+     "build": "vite build && vite-ssg build",
+     "preview": "vite preview"
+   }
+   ```
+
+`vite‑ssg` will crawl your Wouter routes at build time and save static `.html` for `/`, `/zapchasti`, `/zapchasti/sitrak`, … The Helmet tags you already made are rendered into those files, so crawlers see them.
+
+*(No server code changes required; the prerendered HTML is served as static files.)*
+
+---
+
+### ④ One‑line fix in the head
+
+You now have two identical theme‑color tags; keep one:
+
+```html
+<!-- keep ONE copy -->
+<meta name="theme-color" content="#0044ff">
+```
+
+---
+
+### ⑤ Re‑deploy & test
+
+1. `npm run build` → check that `dist/zapchasti/index.html` contains your `<title>` + JSON‑LD.  
+2. Push to Replit / production.  
+3. Browser → **View source** of `https://asiatek.pro/zapchasti/sitrak` – should show the SEO markup.  
+4. DevTools > Console – no 404 for `main.tsx`.
+
+---
+
+### What about the PWA manifest warnings?
+
+* **Screenshots (desktop & mobile)** — optional, only affect Chrome Web Store install UI.  
+* “any maskable” icon warnings — keep your icons, or add a second icon without `purpose: "any maskable"`.
+
+Neither causes functional issues.
+
+---
+
+### Next steps (after the site is live again)
+
+* Replace the *sample* Product schema with real part data.  
+* Submit the new sitemap in Google Search Console & Yandex Webmaster.  
+* Add real Yandex verification token.  
+* Run Lighthouse → fix any red Core‑Web‑Vitals numbers.
+
+Once the bundle loads again and the prerendered HTML is in place, Google & Yandex will both index your titles, descriptions, and structured data.

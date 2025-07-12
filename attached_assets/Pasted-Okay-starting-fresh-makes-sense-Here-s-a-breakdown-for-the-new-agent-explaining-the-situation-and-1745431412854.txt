@@ -1,0 +1,123 @@
+Okay, starting fresh makes sense. Here's a breakdown for the new agent, explaining the situation and providing clear instructions:
+
+Instructions for New Agent: Fixing Prerendering for Asiatek.pro
+
+Background:
+
+We are building a React SPA (client/) with an Express backend (server/) hosted on Replit. The goal is to improve SEO by prerendering specific routes into static HTML files, which will be served only to search engine bots (like Googlebot, YandexBot). Regular users will get the dynamic Single-Page Application (SPA).
+
+The previous agent implemented many parts correctly (setting up react-helmet-async, creating basic prerendering scripts) but got stuck on a critical technical issue:
+
+The Problem: When trying to run the React code on the server-side (using Node.js via server/ssr.ts invoked by scripts/generate-prerendered.mjs) to generate the static HTML, the build process failed. This happened because the React components import client-side assets like CSS (import './style.css') or images (import logo from './logo.png'). Node.js doesn't understand these imports natively and crashes.
+
+Failed Attempts: The previous agent tried complex workarounds (runtime mappers, Node loader hooks, even a flawed "simplified app" component) instead of directly configuring the server-side build tool (esbuild) correctly. This led to multiple conflicting build scripts and files.
+
+Your Objective:
+
+Implement the prerendering correctly by fixing the server-side build configuration using the standard approach. Ensure a clean, single build process.
+
+Key Files & Roles:
+
+client/: React frontend code.
+
+server/: Express backend code.
+
+server/index.ts: Main Express server entry point.
+
+server/ssr.ts: Renders React components to HTML string using react-helmet-async. (Should be clean).
+
+server/middleware/seo-middleware.ts: Express middleware to detect bots and serve static HTML from dist/public. (Should be mostly correct, might need bot list updated later).
+
+scripts/fixed-build.sh: The primary build script. Should orchestrate:
+
+Building client assets (Vite).
+
+Building server code (using esbuild, this needs fixing).
+
+Running the prerendering script.
+
+Copying necessary files to dist/public.
+
+scripts/generate-prerendered.mjs: Script that imports the compiled server/ssr.js and calls its renderPage function for defined routes, writing HTML files to dist/public. (Should be clean).
+
+package.json: Defines npm run build which should execute scripts/fixed-build.sh.
+
+Action Plan:
+
+Phase 1: Fix the Build & Prerendering
+
+Cleanup:
+
+Ensure only one main build script exists: scripts/fixed-build.sh.
+
+Delete any other build scripts created by the previous agent (seo-build.sh, seobuilder.sh, etc.).
+
+Delete any leftover helper/mock files (scripts/node-register.cjs, scripts/prerender-pages.cjs, scripts/asset-mapper.mjs, server/asset-mock.ts, scripts/simplified-app.tsx, etc.).
+
+Verify server/ssr.ts is clean and just uses react-helmet-async correctly.
+
+Verify scripts/generate-prerendered.mjs is clean and just imports renderPage from the compiled ../dist/server/ssr.js (or similar path).
+
+Fix scripts/fixed-build.sh (The CORE TASK):
+
+Locate the step within this script that uses esbuild to compile/bundle server/index.ts (and its dependencies like ssr.ts).
+
+Modify only this esbuild command to configure its loader option. This tells esbuild how to handle non-JS imports encountered during the server build.
+
+Use this configuration within the esbuild command:
+
+// Example using esbuild's JavaScript API within the shell script:
+// node -e "require('esbuild').build({ ... })"
+// --- Add this 'loader' configuration ---
+loader: {
+  // Treat CSS imports as empty JS modules on the server
+  '.css': 'empty',
+  // Treat common image/font imports as empty JS modules on the server
+  '.png': 'empty',
+  '.jpg': 'empty',
+  '.jpeg': 'empty',
+  '.gif': 'empty',
+  '.svg': 'empty',
+  '.woff': 'empty',
+  '.woff2': 'empty',
+  // Add other asset types if needed
+},
+// --- Ensure other options like entryPoints, platform, format, outdir are correct ---
+entryPoints: ['server/index.ts'],
+platform: 'node',
+bundle: true,
+format: 'esm', // Or 'cjs' depending on your project setup
+outdir: 'dist',
+packages: 'external', // Important for Node apps
+// ... other options ...
+
+
+Do NOT introduce other workarounds. The esbuild loader configuration is the standard solution.
+
+Run the Build:
+
+Execute npm run build (or bash scripts/fixed-build.sh).
+
+Report the full output. The build MUST complete without errors, especially errors related to asset imports during the esbuild step or the generate-prerendered.mjs step.
+
+Phase 2: Verification (Only after build succeeds)
+
+Verify Build Output:
+
+Run ls -lR dist/public and show the output. Confirm HTML files, /assets, manifest.json, sitemap.xml, etc., are present. Confirm dist/index.js exists.
+
+Verify Runtime:
+
+Start the server: NODE_ENV=production node dist/index.js.
+
+Test as bot (curl -A "Googlebot" ...) and as user (browser) for key routes (/, /zapchasti/sitrak). Verify bots get prerendered HTML and users get the SPA. Check server logs for seo-middleware activity.
+
+Phase 3: Final Cleanup (Only after runtime verification passes)
+
+Extend Bot List: Add common bots to searchEngineUserAgents in server/middleware/seo-middleware.ts.
+
+Fix Placeholders: Replace dummy data/tokens (Yandex verify, phone, address) in the codebase. Ensure single theme-color.
+
+Run Checks: Rich Results Test, check /sitemap.xml, run Lighthouse.
+
+Important: Focus on getting Step 2 (fixing esbuild loaders in fixed-build.sh) correct. This was the main failure point before. Report outputs clearly at each step.

@@ -1,0 +1,68 @@
+# Keep top-level settings
+modules = ["nodejs-20", "web", "postgresql-16"]
+run = "npm run dev"                                                        # This remains for the development "Run" button
+hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
+
+[nix]
+channel = "stable-24_05"
+
+# --- Deployment Configuration ---
+[deployment]
+# Specify the deployment target
+deploymentTarget = "autoscale"
+
+# Command to build the application *before* deploying
+# This correctly runs your full build script
+build = ["npm", "run", "build"]
+
+# --- CHANGE THIS LINE ---
+# Command to *run* the application *after* it's built and deployed
+# Directly execute node with the production build and set NODE_ENV
+run = ["sh", "-c", "NODE_ENV=production node dist/index.js"]
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 5173
+externalPort = 5173
+
+# Workflows section - Leaving as is, assuming they are needed for other
+# functionalities or specific Replit features you use. The key change
+# for production environment variables is in [deployment].run
+[workflows]
+runButton = "Build and Start" # Name displayed for the main run button
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Build and Start"
+author = 38446519
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run build && npm run dev"

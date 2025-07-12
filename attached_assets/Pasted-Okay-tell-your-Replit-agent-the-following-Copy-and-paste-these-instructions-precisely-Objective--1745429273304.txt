@@ -1,0 +1,348 @@
+Okay, tell your Replit agent the following. Copy and paste these instructions precisely.
+
+Objective: Replace the current flawed static HTML generation (manual-generate.js) with true prerendering using our existing React components and server/ssr.ts. This ensures search engines see the actual content of our application, fixing potential cloaking issues and making maintenance sustainable.
+
+Phase 1: Implement True Prerendering
+
+Action 1: Create the New Prerendering Script
+
+Create a new file named scripts/generate-prerendered.mjs with the following content. This script will use server/ssr.ts to render our React app for defined routes.
+
+// scripts/generate-prerendered.mjs
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { renderPage } from '../server/ssr.js'; // Assuming ssr.ts compiles to ssr.js
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const outputDir = path.resolve(__dirname, '../dist/public'); // Output directly to public
+const clientOutputDir = path.resolve(__dirname, '../dist'); // Where vite builds assets
+
+console.log('🚀 Starting true prerendering process...');
+console.log(`Output directory: ${outputDir}`);
+
+// Ensure output directory exists
+fs.mkdirSync(outputDir, { recursive: true });
+
+// --- Routes to Prerender ---
+// Add any other critical static routes here
+const routes = [
+  '/',
+  '/zapchasti',
+  '/contact', // Assuming /contact is a static page
+  // Add other static pages like /about, /delivery etc. if they exist
+];
+
+// --- Brand Data (Keep consistent with your app's data source) ---
+const brands = [
+  { slug: "sitrak", name: "Sitrak", fullName: "Sitrak", description: "..." },
+  { slug: "dfsk", name: "DFSK", fullName: "Dongfeng Sokon", description: "..." },
+  { slug: "faw", name: "FAW", fullName: "First Automotive Works", description: "..." },
+  { slug: "foton", name: "Foton", fullName: "Beiqi Foton Motor", description: "..." },
+  { slug: "howo", name: "Howo", fullName: "Sinotruk Howo", description: "..." },
+  { slug: "jac", name: "JAC", fullName: "Jianghuai Automobile Co.", description: "..." },
+  // Ensure these descriptions match what's shown in the React app if possible
+];
+
+brands.forEach(brand => {
+  routes.push(`/zapchasti/${brand.slug}`);
+});
+
+console.log(`Identified ${routes.length} routes to prerender.`);
+
+// --- HTML Template ---
+// This basic template injects rendered content and links to Vite's assets.
+// Ensure asset paths (/assets/index.css, /assets/index.js) match Vite's output.
+const createHtmlTemplate = (headContent, appHtml) => `<!DOCTYPE html>
+<html lang="ru" ${headContent.htmlAttributes?.toString() || ''}>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    ${headContent.title?.toString() || '<title>Asiatek</title>'}
+    ${headContent.meta?.toString() || ''}
+    ${headContent.link?.toString() || ''}
+    <!-- IMPORTANT: Ensure these paths match your Vite build output -->
+    <link rel="stylesheet" href="/assets/index.css">
+    ${headContent.style?.toString() || ''}
+    ${headContent.script?.toString() || ''}
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#ffffff"> {/* Adjust if needed */}
+  </head>
+  <body ${headContent.bodyAttributes?.toString() || ''}>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root">${appHtml}</div>
+    <!-- IMPORTANT: Ensure this path matches your Vite build output -->
+    <script type="module" src="/assets/index.js"></script>
+  </body>
+</html>`;
+
+// --- Render Loop ---
+async function generatePages() {
+  for (const route of routes) {
+    console.log(`⚡ Rendering: ${route}`);
+    try {
+      const { html: appHtml, head: helmetContext } = await renderPage(route);
+      const headContent = helmetContext.helmet || {}; // Access the collected metadata
+
+      const fullHtml = createHtmlTemplate(headContent, appHtml);
+
+      // Determine output path
+      let outputPath = path.join(outputDir, route);
+      if (route === '/') {
+        outputPath = path.join(outputDir, 'index.html');
+      } else {
+        outputPath = path.join(outputDir, route, 'index.html');
+      }
+
+      // Create directory if it doesn't exist
+      fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+
+      // Write the file
+      fs.writeFileSync(outputPath, fullHtml);
+      console.log(`✅ Generated: ${outputPath}`);
+
+    } catch (error) {
+      console.error(`❌ Failed to render route ${route}:`, error);
+      // Decide if build should fail on error. For now, just log it.
+    }
+  }
+}
+
+// --- Generate Sitemap ---
+function generateSitemap() {
+    console.log('🔨 Generating sitemap...');
+    let sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`; // Simplified version
+
+    routes.forEach(route => {
+        // Calculate priority based on depth, adjust as needed
+        const depth = route.split('/').filter(Boolean).length;
+        let priority = 1.0 - depth * 0.1;
+        if (priority < 0.5) priority = 0.5;
+        if (route === '/') priority = 1.0;
+
+        sitemap += `
+  <url>
+    <loc>https://asiatek.pro${route}</loc>
+    <changefreq>weekly</changefreq>
+    <priority>${priority.toFixed(1)}</priority>
+    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+  </url>`;
+    });
+
+    sitemap += '\n</urlset>';
+    const sitemapPath = path.join(outputDir, 'sitemap.xml');
+    fs.writeFileSync(sitemapPath, sitemap);
+    console.log(`✅ Sitemap generated: ${sitemapPath}`);
+}
+
+// --- Generate/Copy robots.txt ---
+function generateRobotsTxt() {
+    console.log('🔨 Handling robots.txt...');
+    const robotsSrcPath = path.join(__dirname, '../client/public/robots.txt');
+    const robotsDestPath = path.join(outputDir, 'robots.txt');
+
+    try {
+        // Try copying existing first
+        fs.copyFileSync(robotsSrcPath, robotsDestPath);
+        console.log(`✅ robots.txt copied from ${robotsSrcPath}`);
+    } catch (error) {
+        console.log('⚠️ Could not copy robots.txt, generating default one...');
+        const robotsTxtContent = `# Default robots.txt for https://asiatek.pro
+User-agent: *
+Allow: /
+Disallow: /dashboard/
+Disallow: /auth/
+Disallow: /api/
+# Add other disallowed paths as needed
+
+Sitemap: https://asiatek.pro/sitemap.xml
+
+User-agent: Yandex
+Disallow: /dashboard/
+Disallow: /auth/
+Disallow: /api/
+# Consider Clean-param if needed
+
+# Add specific rules for other bots if necessary`;
+        fs.writeFileSync(robotsDestPath, robotsTxtContent);
+        console.log(`✅ Default robots.txt generated: ${robotsDestPath}`);
+    }
+}
+
+
+// --- Main Execution ---
+await generatePages();
+generateSitemap();
+generateRobotsTxt();
+
+console.log('\n🎉 Prerendering complete!');
+
+
+Action 2: Update the Build Script
+
+Modify the scripts/fixed-build.sh script to use the new generator. Replace the entire content of scripts/fixed-build.sh with this:
+
+#!/bin/bash
+
+# Consolidated build script for Asiatek.pro
+
+echo "🧹 Clearing previous build..."
+rm -rf dist
+
+echo "🔨 [1/3] Building client assets with Vite..."
+# Use the standard Vite build command configured in your package.json
+# Make sure 'npm run build:client' or similar runs 'vite build --outDir dist/public/assets'
+# OR adjust vite config to output assets directly to dist/public/assets
+# For now, assuming 'build:old' builds client into 'dist/assets'
+npm run build:old
+# If build:old outputs to just 'dist', we need to move assets
+if [ -d "dist/assets" ]; then
+  echo "🚚 Moving client assets to dist/public/assets..."
+  mkdir -p dist/public/assets
+  mv dist/assets/* dist/public/assets/
+fi
+
+echo "⚡ [2/3] Generating prerendered HTML pages..."
+# Use the new script. Node needs experimental flag if not using .mjs or package.json type module
+node scripts/generate-prerendered.mjs
+if [ $? -ne 0 ]; then
+  echo "❌ Prerendering failed!"
+  exit 1
+fi
+
+echo "📦 [3/3] Copying essential public files..."
+# Copy manifest, service worker, icons etc. from client/public to dist/public
+# Be careful NOT to overwrite index.html if Vite puts one there.
+# Copy specific files or use find to exclude index.html
+cp client/public/manifest.json dist/public/
+cp client/public/sw.js dist/public/
+# Add other essential files like icons, favicon.svg etc.
+# Example: cp client/public/*.png dist/public/
+
+# Optional: Build the server if it's part of the 'dist' structure
+# echo "⚙️ Building server..."
+# npm run build:server # Example command
+
+echo "✅ Build completed successfully!"
+echo "Output directory: dist/public"
+echo "To start the production server, ensure it serves static files from 'dist/public' and handles API routes."
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Bash
+IGNORE_WHEN_COPYING_END
+
+Action 3: Correct the SEO Middleware Path
+
+Modify server/middleware/seo-middleware.ts. Find the part where it calculates filePath and replace the logic to correctly point to dist/public. Ensure you have path imported.
+
+Replace the try...catch block inside the if ((isSearchEngine || req.query.seo === 'true') && ...) condition with this:
+
+// Calculate the path to the static HTML file within dist/public
+      let filePath = '';
+      const publicDistDir = path.resolve(__dirname, '../../dist/public'); // Correct base path
+
+      if (reqPath === '/') {
+          filePath = path.join(publicDistDir, 'index.html');
+      } else {
+          // For other routes, normalize path and look for /path/to/route/index.html
+          const cleanPath = reqPath.endsWith('/') ? reqPath.slice(0, -1) : reqPath;
+          // Ensure cleanPath starts relative, e.g. 'zapchasti/sitrak'
+          const relativePath = cleanPath.startsWith('/') ? cleanPath.substring(1) : cleanPath;
+          filePath = path.join(publicDistDir, relativePath, 'index.html');
+      }
+
+      console.log(`[SEO Middleware] User-Agent: ${userAgent}`); // Log UA
+      console.log(`[SEO Middleware] Request Path: ${reqPath}`); // Log requested path
+      console.log(`[SEO Middleware] Attempting to serve static file: ${filePath}`); // Log file check
+
+      // Check if the file exists using fs.promises for async/await style if preferred
+      // Or stick with fs.existsSync for simplicity here
+      if (fs.existsSync(filePath)) {
+          console.log(`[SEO Middleware] Found static file for ${reqPath}. Serving: ${filePath}`);
+          return res.sendFile(filePath); // Serve the prerendered file
+      } else {
+          console.warn(`[SEO Middleware] Static file NOT found for ${reqPath} at ${filePath}. Falling back.`);
+          // File doesn't exist, let the request fall through to the SPA handler
+          next();
+      }
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+TypeScript
+IGNORE_WHEN_COPYING_END
+
+Action 4: Delete the Old Manual Generator
+
+Delete the file scripts/manual-generate.js. It is now replaced by scripts/generate-prerendered.mjs.
+
+Action 5: Update package.json (If Necessary)
+
+Ensure your main build script in package.json (e.g., "build": "...") now executes bash scripts/fixed-build.sh. Remove any other conflicting build scripts (build-deploy.sh, seo-only.sh etc.) from package.json. Also make sure build:old (or whatever builds the client) is correctly defined.
+
+Action 6: Rebuild and Test
+
+Run npm run build in the Replit shell. Watch the output carefully for errors from Vite and the generate-prerendered.mjs script.
+
+Check the dist/public directory. It should contain:
+
+index.html (prerendered home page)
+
+sitemap.xml
+
+robots.txt
+
+manifest.json, sw.js (and other copied public files)
+
+An assets folder with JS/CSS bundles from Vite.
+
+Folders for each prerendered route (e.g., zapchasti/sitrak/index.html).
+
+Start your server (npm start or however you run the Express server).
+
+Test as Bot: Use curl or browser dev tools (Network conditions -> User agent -> Googlebot) to access https://asiatek.pro/ and a brand page like https://asiatek.pro/zapchasti/sitrak. View the source code. It should be the full HTML generated by React, including meta tags and body content. Check server logs for [SEO Middleware] messages confirming it served the static file.
+
+Test as User: Access the same pages normally in your browser. It should load the dynamic React application. Check server logs to ensure the middleware didn't serve the static file this time (it should have fallen back).
+
+After completing and verifying Phase 1, proceed to Phase 2 (Cleanup):
+
+Phase 2: Cleanup and Refinement (Your Friend's Points)
+
+Action 7: Unify Helmet Usage
+
+Remove the custom client/src/lib/ssg-helpers.ts file.
+
+Replace all imports from @/lib/ssg-helpers with imports from react-helmet-async.
+
+Ensure your main App.tsx or main.tsx wraps the entire application in <HelmetProvider> from react-helmet-async.
+
+The server/ssr.ts should already be using HelmetProvider correctly; just ensure it imports from the real library now.
+
+Action 8: Extend Bot List in Middleware
+
+Add more bot user agent strings (lowercase) to the searchEngineUserAgents array in server/middleware/seo-middleware.ts (e.g., bingbot, duckduckbot, baiduspider, common social media preview bots if desired).
+
+Action 9: Fix Placeholders & Duplicates
+
+Search the codebase (especially SEO components and the new generate-prerendered.mjs template if you added static elements there) for placeholder values (REPLACE_WITH_..., dummy phone/address) and replace them with real data.
+
+Ensure there's only one <meta name="theme-color"> being rendered (check the template and any Helmet components).
+
+Action 10: Final Checks
+
+Re-run the tests from Action 6.
+
+Use Google's Rich Results Test on a prerendered brand page URL.
+
+Check /sitemap.xml in the browser.
+
+Run Lighthouse audits.
+
+Provide these instructions to your agent. Start with Phase 1. Once that's working and verified, move to Phase 2.

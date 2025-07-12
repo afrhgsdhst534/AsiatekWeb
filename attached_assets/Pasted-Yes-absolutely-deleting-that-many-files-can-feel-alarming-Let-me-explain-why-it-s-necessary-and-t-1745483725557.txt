@@ -1,0 +1,51 @@
+Yes, absolutely, deleting that many files can feel alarming! Let me explain why it's necessary and the right move here, and your assistant can verify the reasoning.
+
+The Core Problem:
+
+The previous agents, while trying to solve the technical challenge of prerendering, ended up creating many different attempts and temporary solutions. Each time one approach failed, they often created new scripts or helper files for the next attempt, without always cleaning up the old ones.
+
+Think of it like a messy workshop:
+
+Imagine trying to build a specific machine (our prerendered website).
+
+Several workers (the agents) came in, each trying a different blueprint (build-*.sh, build-*.js, seobuilder.sh...).
+
+They left half-finished parts scattered around (simple-prerender.js, helmet-bridge.js).
+
+They created custom tools that didn't quite work or conflicted with standard tools (esbuild-asset-plugin.js).
+
+They left multiple, slightly different instruction manuals lying about (gen-sitemap.js vs. logic inside generate-prerendered.mjs).
+
+Why Delete So Many Files?
+
+We need to clean the workshop so we can build the machine correctly using one clear blueprint and the right tools. Deleting these files achieves several critical goals:
+
+Eliminate Confusion: Having multiple build scripts (build-static.sh, fixed-build.sh, build-seo.js, etc.) makes it impossible to know which one is supposed to run or what state it's in. We are consolidating all the build logic into one reliable script: scripts/fixed-build.sh. All others are failed or redundant attempts.
+
+Remove Broken Code: Files like simple-prerender.js, helmet-bridge.js, and esbuild-asset-plugin.js were created as workarounds for problems the agent couldn't solve directly (like asset imports or ESM/CJS issues). These workarounds were either flawed, incomplete, or fundamentally incorrect (like the "simplified app" idea). We are now fixing the core problems properly, making these workarounds unnecessary and potentially harmful if left behind.
+
+Prevent Conflicts: Running an old, incorrect build script by mistake could break the site or overwrite the correctly generated files. Removing them prevents this entirely.
+
+Consolidate Logic: Scripts like generate-brands.js, generate-home.js, and gen-sitemap.js contain logic that is now being handled correctly within the new scripts/generate-prerendered.mjs script (which renders all necessary pages and includes sitemap generation). Keeping the old ones is redundant and risks using outdated logic.
+
+Remove Agent-Specific Clutter: Files like build.js (the wrapper) or validate-seo.sh were specific to the agent's temporary workflow or testing of broken states. They aren't part of the final, clean solution.
+
+Clean Compiled Output: server/ssr.js is generated during the build. Deleting it ensures we run with freshly compiled code. server/vite.ts seems misplaced; Vite config normally lives at the root.
+
+In Short (For the Assistant):
+
+We are removing files corresponding to:
+
+Multiple failed/redundant build orchestration attempts (build-*.sh/.js).
+
+Specific feature generation scripts whose logic is now consolidated (generate-*.js, gen-sitemap.js).
+
+Flawed/obsolete workarounds for asset loading or module compatibility (simple-prerender.js, *-bridge.js, *-plugin.js, asset-mock.ts).
+
+Agent-specific wrappers or validation scripts (build.js, validate-*.sh).
+
+Compiled output or misplaced config (ssr.js, server/vite.ts).
+
+This cleanup ensures we are left only with the necessary source files (ssr.ts, index.ts, etc.) and the single, definitive build pipeline (fixed-build.sh -> build-server.mjs -> generate-prerendered.mjs). It's about removing failed experiments and duplicate logic to create a clear, maintainable, and correct build process.
+
+It's safe because the functionality contained in the deleted files is either incorrect, unnecessary, or correctly implemented within the files we are keeping/replacing.

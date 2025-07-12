@@ -1,0 +1,128 @@
+Why the page‑source looks empty
+
+When you open **view‑source** you should see a ready HTML page with:
+
+```html
+<title>Запчасти для …</title>
+<meta property="og:title" …>
+<script type="application/ld+json">{"@type":"Product" …}</script>
+```
+
+Instead you only see the bare Vite shell and the `<div id="root"></div>`.  
+That means the brand page is **rendered entirely in the browser (CSR)**.  
+Google can execute JS, but it often delays or skips it; Yandex frequently doesn’t execute complex React bundles at all. So crawlers never see your SEO tags.
+
+---
+
+## What has to happen
+
+1. **Serve complete HTML** for every public URL:  
+   `/`, `/zapchasti`, `/zapchasti/sitrak`, etc.  
+   You can do that by:  
+   * *Option A (prerender)*: use **vite‑plugin‑ssg** to spit out static HTML files at build‑time.  
+   * *Option B (full SSR)*: finish the **vite‑plugin‑ssr** integration so your server renders React on each request.
+
+2. **Keep all the meta/JSON‑LD work you already did**—Helmet will run on the server or during prerender, so the tags you wrote will be inside the delivered HTML.
+
+3. **Fix a couple of minor head issues** (easy copy‑paste).
+
+Below is the simplified, non‑coder guide for **Option A (prerender)**—quickest path on Replit.
+
+---
+
+## Step‑by‑step guide (no coding knowledge needed)
+
+### ① Install the prerender plugin
+
+1. Open Replit shell (or local terminal).  
+2. Run  
+   ```bash
+   npm i -D vite-plugin-ssg @vueuse/head
+   ```  
+   (Yes, it works with React too.)
+
+### ② Edit `vite.config.ts`
+
+Add one line inside the `plugins:[ … ]` array:
+
+```ts
+import { ViteSSG } from 'vite-plugin-ssg';
+
+export default defineConfig({
+  plugins: [
+    react(),
+    ViteSSG()   // ← add this
+  ]
+});
+```
+
+That’s it for config.
+
+### ③ Create an SSG entry file
+
+Put a tiny file `src/entry-client.tsx`:
+
+```tsx
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App';
+
+createRoot(document.getElementById('root')!).render(<App />);
+export const createApp = () => <App />;   // required by vite‑plugin‑ssg
+```
+
+Delete the old `main.tsx` or just stop importing it.
+
+### ④ Tell build script to prerender
+
+In `package.json` change the build command:
+
+```json
+"scripts": {
+  "build": "vite build && vite-ssg build"
+}
+```
+
+During `vite-ssg build` the plugin will crawl every **Route** defined in your router (Home, brand index, each `/zapchasti/:slug`) and output `.html` files with the Helmet tags already injected.
+
+### ⑤ Deploy again
+
+Replit will now serve the generated static HTML.  
+Open `view‑source:https://asiatek.pro/zapchasti/sitrak`—you should see `<title>Запчасти для SITRAK – Asiatek</title>` plus your `Product` and `Breadcrumb` JSON‑LD.
+
+### ⑥ Quick fixes in `<head>`
+
+* Remove the duplicate theme‑color line:
+  ```html
+  <meta name="theme-color" content="#0044ff">  <!-- keep ONE copy -->
+  ```
+* Point Apple icon to the file that exists:
+  ```html
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  ```
+* Replace `"verification_token"` with the real string from Yandex Webmaster.
+
+### ⑦ Check again
+
+1. **Rich‑results test** (Google) → must detect Product & LocalBusiness.  
+2. **Yandex.Structured‑data test** → shows AutoPartsStore entity.  
+3. Robots & sitemap still 200.
+
+If all green, the site is crawl‑ready and your new schema work will finally be visible.
+
+---
+
+## If you prefer full server‑side rendering (Option B)
+
+Give the agent this single sentence:
+
+> “Finish vite-plugin-ssr: create `pages/*.page.tsx` files, an `ssr.config.js`, and an Express handler that calls `renderPage()` so each URL returns HTML with Helmet tags.”
+
+But for speed, prerender (steps above) is usually enough for a catalog that rarely changes.
+
+---
+
+### Bottom line
+
+The agent did good on meta/schema work; the missing piece is **shipping those tags in initial HTML**.  
+Have them implement the prerender steps or complete SSR, fix the tiny duplicates, redeploy, and your SEO foundation is solid.

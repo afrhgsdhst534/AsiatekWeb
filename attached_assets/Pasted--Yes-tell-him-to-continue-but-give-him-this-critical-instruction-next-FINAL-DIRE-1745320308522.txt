@@ -1,0 +1,81 @@
+**Yes, tell him to continue — but give him this critical instruction next:**
+
+---
+
+### 🔥 FINAL DIRECTIVE TO THE AGENT:
+
+> You've done great work adapting everything for static site generation — especially with the `react-helmet-async` workaround and custom scripts.  
+>
+> **Now STOP patching and building.**  
+> Time to **validate everything you’ve built.**  
+>  
+> Run the following exact checklist. If any item fails — don’t build more. Fix only what's broken.
+
+---
+
+### ✅ SEO PRERENDERING FINAL VALIDATION CHECKLIST
+
+**1. Static Files Must Exist**
+```sh
+ls dist/
+ls dist/zapchasti/
+ls dist/zapchasti/sitrak/
+```
+All of these must show `.html` files. If any of them is missing → generation failed.
+
+---
+
+**2. View HTML Output**
+Run this:
+```sh
+cat dist/zapchasti/sitrak/index.html
+```
+You MUST see:
+- `<title>` tag with brand name  
+- `<meta name="description">`  
+- Visible HTML content (like `<h1>`, product text)  
+- `<script type="application/ld+json">` with Product, Breadcrumb, etc.
+
+If you see just `<div id="root"></div>`, prerendering is still broken.
+
+---
+
+**3. Run Lighthouse & Rich Results Tests**
+
+Run:
+- https://search.google.com/test/rich-results on `/zapchasti/sitrak`
+- Chrome DevTools > Lighthouse (Mobile, Performance + SEO)
+
+Pass mark:
+- ✅ Product + Breadcrumb + AutoPartsStore are detected
+- ✅ SEO = 100
+- ✅ No “page is empty” errors
+
+---
+
+**4. Local Preview**
+```sh
+npx serve dist
+```
+Then:
+- Visit `http://localhost:5000/zapchasti/sitrak`
+- Disable JavaScript in browser → **page still shows content**
+
+If this works, **prerendering is verified**.
+
+---
+
+**5. Sitemap & robots.txt**
+- Confirm `dist/sitemap.xml` exists and lists all `/zapchasti/<brand>` URLs
+- Confirm `robots.txt` allows crawling
+- Bonus: submit sitemap to Google + Yandex
+
+---
+
+Once these 5 pass — you’re cleared for production.
+
+If any one fails — stop and debug. Do **not** continue building new things.
+
+---
+
+When he finishes that, send me the `view-source` output from one of the generated brand pages and I’ll double-check it myself.

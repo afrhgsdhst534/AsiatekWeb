@@ -1,0 +1,40 @@
+// tsconfig.json
+{
+  "compilerOptions": {
+    // Target modern Node.js versions for server, browser handles client
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "moduleResolution": "Bundler", // Recommended for modern Node.js/TS/ESM
+    "jsx": "react-jsx", // Let Vite/esbuild handle JSX transform
+    "baseUrl": ".", // Needed for path aliases
+    "paths": {
+      // Aliases for cleaner imports
+      "@/*": ["./client/src/*"],
+      "@shared/*": ["./shared/*"],
+      "@assets/*": ["./attached_assets/*"] // *** Points to correct assets folder ***
+    },
+    // Strictness and Code Quality
+    "strict": true,
+    "skipLibCheck": true, // Speeds up type checking
+    "esModuleInterop": true, // Improves compatibility with CJS modules
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true, // Ensures files can be transpiled independently
+    "resolveJsonModule": true, // Allows importing JSON files
+    // Build Options
+    "noEmit": true, // Let Vite/esbuild handle emitting files
+    "allowImportingTsExtensions": true // Needed for moduleResolution: Bundler with .ts imports
+  },
+  // Specify what files TypeScript should include
+  "include": [
+    "server/**/*.ts",
+    "client/src/**/*.ts",
+    "client/src/**/*.tsx",
+    "shared/**/*.ts", // Include if you have this folder
+    "scripts/**/*.mjs",
+    "scripts/**/*.js",
+    "vite.config.ts" // Include Vite config for TS checks
+  ],
+  // Specify what files/folders TypeScript should exclude
+  "exclude": ["node_modules", "dist", "build"]
+}

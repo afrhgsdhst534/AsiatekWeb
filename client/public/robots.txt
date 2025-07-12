@@ -1,0 +1,33 @@
+# robots.txt for https://asiatek.pro
+
+# General instructions for all bots
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /auth/reset-password
+Disallow: /auth/forgot-password
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://asiatek.pro/sitemap.xml
+
+# Crawl delay to prevent server overload
+Crawl-delay: 1
+
+# Yandex-specific instructions
+User-agent: Yandex
+Allow: /
+Disallow: /dashboard
+Disallow: /auth/reset-password
+Disallow: /auth/forgot-password
+Disallow: /api/
+Host: asiatek.pro
+Clean-param: utm_source&utm_medium&utm_campaign&utm_content&utm_term
+
+# Google-specific instructions
+User-agent: Googlebot
+Allow: /
+Disallow: /dashboard
+Disallow: /auth/reset-password
+Disallow: /auth/forgot-password
+Disallow: /api/

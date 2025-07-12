@@ -1,0 +1,142 @@
+Below is a **from‑scratch, soup‑to‑nuts SEO playbook** tuned for a Russian‑speaking auto‑parts shop that wants to rank for “запчасти для + BRAND” on both **Google** and **Yandex**.  
+It’s broken into four stages; follow them in order. Code snippets assume your stack is **React + Vite** (client‑side) with an Express API, but they’re framework‑agnostic.
+
+---
+
+## ❶ Technical foundation (2 days)
+
+| Task | Why it matters | How to do it |
+|------|----------------|--------------|
+| **A. Server‑side rendering or prerender** | Google & Yandex still crawl best when HTML lands complete. | *Fast path*: install **`vite-plugin-ssr`** or migrate to **Astro** (hybrid static/SSR). At minimum, prerender the 30 most‑important pages (home, each brand landing). |
+| **B. Clean URLs** | `/zapchasti/sitrak` beats `/?brand=SITRAK&id=4`. | Route pattern: `/zapchasti/:brand` and `/zapchasti/:brand/:model`. |
+| **C. robots.txt + sitemap** | Allows full crawl. | ```txt robots.txt User-agent: * Allow: / Sitemap: https://asiatek.pro/sitemap.xml ``` |
+| **D. Sitemap generator** | Keeps Google/Yandex aware of new brand/model pages. | `npm i sitemap` → script: ```js // scripts/gen-sitemap.js const { SitemapStream, streamToPromise } = require('sitemap'); const fs = require('fs'); const links = [ '/', '/zapchasti/sitrak', ... ]; const sm = new SitemapStream({ hostname: 'https://asiatek.pro' }); streamToPromise( Readable.from(links).pipe(sm) ).then(data => fs.writeFileSync('public/sitemap.xml', data)); ``` Hook it in `postbuild`. |
+| **E. Core Web Vitals** | Both engines use speed as a ranking tiebreaker. | lazy‑load images (`loading="lazy"`), ship `fetch()` over HTTP/2, compress with Brotli. |
+| **F. Structured data** | Rich snippets in Yandex Turbo Cards & Google. | see code below |
+
+---
+
+### Code — reusable **SEO Head** component
+
+```tsx
+// src/components/Seo.tsx
+import { Helmet } from "react-helmet-async";
+
+interface SeoProps {
+  title: string;
+  description: string;
+  path: string;
+  image?: string;
+  brand?: string;
+}
+export default function Seo({ title, description, path, image, brand }: SeoProps) {
+  const url = `https://asiatek.pro${path}`;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": title,
+    "brand": brand,
+    "description": description,
+    "url": url,
+    "offers": { "@type": "Offer", "availability": "https://schema.org/InStock" }
+  };
+  return (
+    <Helmet>
+      <title>{title}</title>
+      <meta name="description" content={description} />
+      <link rel="canonical" href={url} />
+      {/* Open Graph */}
+      <meta property="og:type" content="website" />
+      <meta property="og:title" content={title} />
+      <meta property="og:description" content={description} />
+      <meta property="og:url" content={url} />
+      {image && <meta property="og:image" content={image} />}
+      {/* JSON‑LD */}
+      <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+    </Helmet>
+  );
+}
+```
+
+Usage inside `/zapchasti/[brand]` page:
+
+```tsx
+<Seo
+  title={`Запчасти для ${brandName} – Asiatek`}
+  description={`Купить оригинальные и аналоговые запчасти для ${brandName}. Доставка по СНГ.`}
+  path={`/zapchasti/${slug}`}
+  brand={brandName}
+/>
+```
+
+---
+
+## ❷ On‑page content (4‑6 days)
+
+1. **One landing page per brand**  
+   `/zapchasti/sitrak`, `/zapchasti/shacman` … 23 pages total.  
+   *H1*: “Запчасти для SITRAK”.  
+   *H2 cluster* examples:  
+   * “Оригинальные и аналоговые запчасти Sitrak (Ситрак)”  
+   * “Каталог деталей Sitrak C7H, T7H”  
+   * “Как заказать запчасти Sitrak в Дешабне / Москве”  
+   **Word count**: ≥ 600 RU characters (~100 English words).  
+   Place brand & “запчасти” in first 90 chars.
+
+2. **Semantic linking**  
+   Inside Sitrak page link to `/zapchasti/sitrak/c7h` etc. Use anchor text “запчасти C7H”.
+
+3. **FAQ accordion** (FAQPage schema) under each brand:
+
+```html
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "FAQPage",
+ "mainEntity": [
+  {"@type":"Question","name":"Как узнать номер детали Sitrak?","acceptedAnswer":{"@type":"Answer","text":"..." }}
+ ]
+}
+</script>
+```
+
+4. **Alt text on every brand logo**  
+   `<img src="/logos/sitrak.png" alt="Логотип SITRAK запчасти">`
+
+5. **Breadcrumbs markup** for Yandex:
+
+```html
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "BreadcrumbList",
+ "itemListElement": [
+  {"@type":"ListItem","position":1,"name":"Главная","item":"https://asiatek.pro"},
+  {"@type":"ListItem","position":2,"name":"Запчасти","item":"https://asiatek.pro/zapchasti"},
+  {"@type":"ListItem","position":3,"name":"SITRAK"}
+ ]
+}
+</script>
+```
+
+---
+
+## ❸ Off‑page signals (continuous)
+
+| Action | Tooling |
+|--------|---------|
+| **Yandex Business & Google Business Profile** (free) – register “Asiatek Dushanbe”. Add brands list in description. | business.yandex.ru |
+| **Catalog backlinks** – list store on `exist.ru`, `emex.ru`, local Tajik/RU auto forums. | Send short press releases, swap links (“Каталог запчастей SITRAK – Asiatek”). |
+| **FAQ and blog** – Weekly post addressing “как подобрать колодки для HOWO” etc. | 700‑word blog posts, interlink to brand pages. |
+| **Review markup** – display ★★★★★ ratings fetched from orders. Add `AggregateRating` JSON‑LD. | after 10 genuine reviews. |
+| **Behavioral factors (Yandex)** – fast page, clear CTAs; embed phone number; add `<meta name="yandex-verification" content="…">` and submit sitemap in Yandex.Webmaster. |
+
+---
+
+## ❹ Monitoring & tuning
+
+1. **Search Console + Yandex Webmaster** – watch Coverage, Core Web Vitals, Queries list (`"запчасти sitrak"` impressions).  
+2. **Log impressions** – build weekly report: keyword → page → avg position. Raise thin pages.  
+3. **A/B** title tags: try “Запчасти SITRAK купить — Asiatek”, measure CTR in 14 days.  
+4. **Refresh** content quarterly; add new models (e.g., “Sitrak T5G”) as they launch.  
+5. **Core Web Vitals alert** – Lighthouse CI or PageSpeed Insights API; fail build if LCP > 2.5 s.

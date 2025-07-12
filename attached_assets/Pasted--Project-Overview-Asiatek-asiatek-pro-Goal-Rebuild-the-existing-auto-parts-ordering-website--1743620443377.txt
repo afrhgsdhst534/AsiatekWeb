@@ -1,0 +1,198 @@
+🛠 Project Overview – Asiatek (asiatek.pro)
+
+Goal: Rebuild the existing auto parts ordering website using clean, modular code with proper backend logic, working UX flows, and production-level robustness.
+
+Tech Stack (preferred):
+	•	Frontend: React + TailwindCSS
+	•	Backend: Node.js (Express) + PostgreSQL
+	•	Auth: Email + PKCE flow
+	•	Language: Russian-only interface
+
+⸻
+
+🌐 Website Pages & UX Flows
+
+1. Homepage (/)
+
+UX Purpose: Simple intro + redirection to the main form.
+
+Functionality:
+	•	Nav menu (Home, Order, Contact, Account/Login)
+	•	Hero with CTA button → /order
+	•	Responsive layout
+Link screenshot of homepage here
+
+⸻
+
+2. Order Form (/order)
+
+UX: Multi-step form with a progress bar (4 steps). All form data is validated and stored centrally before final submission.
+
+Step 1: Vehicle Type
+	•	Options: Passenger / Commercial / Chinese
+	•	Select to continue
+	•	Highlight active choice
+
+Step 2: Vehicle Info
+	•	If Chinese → skip VIN
+	•	Else:
+	•	VIN (17-char validation)
+	•	Or: Manual entry (Make, Model, Year, Engine Volume, Fuel Type)
+
+Step 3: Parts
+	•	Add 1+ parts dynamically:
+	•	Part name (required)
+	•	Quantity (with + / –)
+	•	Extra info: Comment, SKU, Brand
+	•	Can delete entries
+
+Step 4: Contact Info
+	•	Name, Email, Phone (see below), City
+	•	Optional order comment
+	•	If guest: Ask to create password + confirm password
+
+Key UX Details:
+	•	Navigation: Next / Back buttons with step validation
+	•	Progress bar (shows current step)
+	•	Final modal with success confirmation
+
+⸻
+
+3. Phone Input Component
+
+Critical UX Component
+	•	Country code selector (dropdown with flags, searchable)
+	•	Auto-format by country (Russia: XXX XXX XX XX, etc.)
+	•	Input limited by valid digit count
+	•	Manual editing of country code updates flag
+	•	Hover shows format hint
+	•	Works seamlessly on mobile & desktop
+
+⸻
+
+4. Auth System
+
+Pages: /login, /register, /auth/reset-password, etc.
+
+Flow:
+	•	Register new users with email confirmation
+	•	Login with email/password
+	•	Reset password via email
+	•	Auto-login after guest order registration
+	•	Redirect from protected pages
+	•	Token expiration handling
+
+Security: PKCE, secure token storage, error handling for invalid or expired links
+
+⸻
+
+5. Guest Order Logic
+
+Smart UX for unregistered users:
+	•	If email exists → prompt to log in
+	•	If not:
+	•	Auto-create account with password
+	•	Auto-login
+	•	Link order to new user
+	•	Always connect order with a user ID
+
+⸻
+
+6. User Dashboard (/dashboard)
+
+Post-login panel:
+	•	View user info
+	•	See list of orders (status, vehicle, parts)
+	•	Create new order
+	•	Logout
+
+Order Statuses: new, processing, shipped, delivered, cancelled
+
+⸻
+
+7. Contact Page (/contact)
+
+Contact form:
+	•	Name, Email, Phone, Message
+Static Info: Phone, Email, Address, Work hours
+
+⸻
+
+🧠 Backend Logic
+
+Data Models
+
+Vehicle
+
+type: 'passenger' | 'commercial' | 'chinese'
+vin?: string
+make?: string
+model?: string
+year?: number
+engineVolume?: string
+fuelType?: string
+
+Part
+
+id: string
+name: string
+quantity: number
+description?: string
+
+ContactInfo
+
+name: string
+email: string
+phone: string
+countryCode: string
+city: string
+comments?: string
+
+Order
+
+id: string
+createdAt: string
+updatedAt: string
+userId: string
+vehicle: Vehicle
+parts: Part[]
+contactInfo: ContactInfo
+status: string
+
+User Profile
+
+id: string
+createdAt: string
+email: string
+fullName?: string
+phone?: string
+
+
+
+⸻
+
+Order Placement Flow
+	1.	Fill multi-step form
+	2.	Validate step-by-step
+	3.	On submit:
+	•	If guest: auto-register & login
+	•	Save order
+	•	Show success dialog
+	•	Redirect to dashboard
+
+⸻
+
+Notifications
+
+Toast system for:
+	•	Success messages
+	•	Form errors
+	•	Status feedback (e.g., “Order submitted”, “Phone invalid”)
+
+⸻
+
+🧱 Additional Notes
+	•	UI can be used from existing site (link pages/screenshots)
+	•	Prioritize correct logic, clean component structure, and working backend
+	•	All content in Russian
+	•	Mobile responsiveness required

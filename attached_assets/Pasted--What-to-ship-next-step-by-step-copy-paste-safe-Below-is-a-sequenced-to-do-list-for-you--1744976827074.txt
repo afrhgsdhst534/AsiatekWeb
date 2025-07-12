@@ -1,0 +1,178 @@
+### What to ship next — **step‑by‑step, copy‑paste‑safe**
+
+Below is a sequenced to‑do list for you, with the exact files, code blocks, and checks. Follow each bullet in order; nothing will break.
+
+---
+
+## 1  Add global **LocalBusiness** schema (local SEO)
+
+1. **Create** `client/src/components/seo/LocalBusinessLD.tsx`  
+
+```tsx
+import { Helmet } from "react-helmet-async";
+
+export default function LocalBusinessLD() {
+  const data = {
+    "@context": "https://schema.org",
+    "@type": "AutoPartsStore",
+    "name": "Asiatek",
+    "image": "https://asiatek.pro/logo-og.png",
+    "url": "https://asiatek.pro",
+    "telephone": "+992931234567",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "пр‑т Рудаки 21",
+      "addressLocality": "Душанбе",
+      "postalCode": "734000",
+      "addressCountry": "TJ"
+    },
+    "openingHoursSpecification": [
+      {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": [
+          "Monday","Tuesday","Wednesday",
+          "Thursday","Friday","Saturday"
+        ],
+        "opens": "09:00",
+        "closes": "18:00"
+      }
+    ],
+    "geo": { "@type": "GeoCoordinates", "latitude": 38.5601, "longitude": 68.7870 }
+  };
+  return (
+    <Helmet>
+      <script type="application/ld+json">{JSON.stringify(data)}</script>
+    </Helmet>
+  );
+}
+```
+
+2. **Insert once** in `App.tsx`—exactly after `<Toaster />`
+
+```tsx
+import LocalBusinessLD from "@/components/seo/LocalBusinessLD";
+/* … */
+<Router />
+<Toaster />
+<PWAInstallPrompt />
+<LocalBusinessLD />   {/* ← new line */}
+```
+
+---
+
+## 2  Emit **Product / Offer / Rating** schema on brand pages
+
+1. **Create** `client/src/components/seo/ProductLD.tsx`
+
+```tsx
+import { Helmet } from "react-helmet-async";
+
+interface Props {
+  id: string;            // canonical URL
+  name: string;
+  brand: string;
+  image?: string;
+  price?: number;
+  rating?: number;       // 0‑5
+  reviewCount?: number;
+}
+export default function ProductLD(p: Props) {
+  const ld: any = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": p.name,
+    "brand": p.brand,
+    "url": p.id,
+    "image": p.image
+  };
+  if (p.price) ld.offers = {
+    "@type": "Offer",
+    "priceCurrency": "TJS",
+    "price": p.price,
+    "availability": "https://schema.org/InStock"
+  };
+  if (p.rating) ld.aggregateRating = {
+    "@type": "AggregateRating",
+    "ratingValue": p.rating.toFixed(1),
+    "reviewCount": p.reviewCount ?? 1
+  };
+  return (
+    <Helmet>
+      <script type="application/ld+json">{JSON.stringify(ld)}</script>
+    </Helmet>
+  );
+}
+```
+
+2. **Inside `BrandPage.tsx`** (or whatever renders a list of parts):
+
+```tsx
+import ProductLD from "@/components/seo/ProductLD";
+/* … */
+{parts.map(p => (
+  <div key={p.sku}>
+    <PartCard {...p} />   {/* your existing UI */}
+    <ProductLD
+      id={`/zapchasti/${brandSlug}/${p.sku}`}
+      name={`${p.name} ${brandName}`}
+      brand={brandName}
+      image={p.image}
+      price={p.price}
+      rating={p.avgRating}
+      reviewCount={p.reviewCount}
+    />
+  </div>
+))}
+```
+
+*If you don’t store price/rating yet, omit those props—schema still valid.*
+
+---
+
+## 3  Consistent **NAP** in footer
+
+Add to `components/layout/footer.tsx`:
+
+```jsx
+<section className="text-sm leading-relaxed">
+  <strong>Asiatek</strong><br/>
+  пр‑т Рудаки 21, Душанбе 734000<br/>
+  <a href="tel:+992931234567">+992 93 123‑4567</a>
+</section>
+```
+
+Use this exact block everywhere (Yandex loves NAP consistency).
+
+---
+
+## 4  Update **sitemap generator**
+
+Add dynamic part URLs & brand pages:
+
+```js
+// scripts/gen-sitemap.js
+const brands = JSON.parse(fs.readFileSync('client/src/data/brands.json'));
+brands.forEach(b => links.push(`/zapchasti/${b.slug}`));
+// if you list individual parts, push those too
+```
+
+Run `npm run build && node scripts/gen-sitemap.js` (make sure `"postbuild"` runs it automatically).
+
+---
+
+## 5  Verify & submit
+
+1. **Local**: `npm run dev`, open Chrome > DevTools > Application  
+   * Manifest = green, Service Worker running.  
+2. **Rich Results Test** (https://search.google.com/test/rich-results) – paste `http://localhost:5173/zapchasti/sitrak` → should detect Product, Breadcrumb, FAQ.  
+3. **Deploy**, then in Google Search Console & Yandex.Webmaster → submit new sitemap.
+
+---
+
+### Extra Yandex‑specific tweaks (non‑code)
+
+* Add `<meta name="yandex-verification" content="XXXX"/>` to `index.html` (get code from Webmaster).  
+* In Yandex.Business: select category **“Магазин автозапчастей”**, upload same opening hours, phone, logo.  
+* Collect at least 10 Yandex reviews; they feed rating stars.
+
+Follow the bullets exactly—no surprises. Your agent can tick them off one by one and you’ll have full Product + LocalBusiness markup plus consistent NAP, the last big pieces Google & Yandex look for.

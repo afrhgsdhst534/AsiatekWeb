@@ -1,0 +1,121 @@
+The Problem:
+
+The error Could not resolve "../../../server/lib/helmet-async-wrapper" from "client/src/components/seo/LocalBusinessLD.tsx" tells us the core issue now:
+
+Client Code Cannot Import Server Code: Your client-side code (running in the browser, bundled by Vite) cannot directly import files from your server-side code directory (server/). They are fundamentally separate parts of the application, even if they live in the same repository. Vite only processes files within its configured root (which is client/) and resolves imports relative to that or via node_modules.
+
+My Mistake: Suggesting the client components import directly from server/lib/ was incorrect. That breaks the separation between client and server builds.
+
+Let's Simplify Dramatically and Fix This.
+
+We will abandon the wrapper/bridge idea. The real issue is likely how esbuild (during the server build) is bundling react-helmet-async compared to how Vite (during the client build) handles it.
+
+The Correct Approach (Reverting & Focusing):
+
+Revert Client Imports: Go back to all client components (client/src/...) that use Helmet and ensure they use the standard named import:
+
+import { Helmet, HelmetProvider } from 'react-helmet-async';
+// Use HelmetProvider only if needed in a specific client component,
+// usually only needed once at the root in main.tsx or App.tsx for the client
+
+
+(Remove any imports pointing to server/lib/helmet-async-wrapper)
+
+Revert Server Imports: Go back to server/ssr.ts and ensure it also uses the standard named import for HelmetProvider:
+
+import { HelmetProvider } from 'react-helmet-async';
+import type { HelmetServerState } from 'react-helmet-async'; // Type import is fine
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+TypeScript
+IGNORE_WHEN_COPYING_END
+
+(Remove any imports pointing to server/lib/helmet-async-wrapper)
+
+DELETE the Wrapper: Delete the file server/lib/helmet-async-wrapper.ts (and the server/lib directory if empty).
+
+Fix esbuild Server Build Configuration (The Crucial Step):
+
+The problem lies in how esbuild handles react-helmet-async when creating the server bundle (dist/ssr.js and dist/index.js). We need to ensure it correctly processes this specific package while respecting its structure. Often, marking problematic dependencies as external and letting Node.js resolve them at runtime can work if Node's runtime resolution handles it correctly (which failed before), or we need to adjust bundling slightly.
+
+Modify scripts/build-server.mjs: Replace its contents with this version. It tries marking react-helmet-async as external initially.
+
+// scripts/build-server.mjs (REVISED)
+import esbuild from 'esbuild';
+import { tsconfigPathsPlugin } from 'tsconfig-paths-esbuild-plugin';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+console.log('⚙️ Building production server with esbuild...');
+
+try {
+  await esbuild.build({
+    entryPoints: [
+       path.resolve(__dirname, '../server/index.ts'), // Main server entry
+       path.resolve(__dirname, '../server/ssr.ts') // Also bundle ssr separately if needed by prerenderer
+    ],
+    platform: 'node',
+    target: 'node18',
+    bundle: true,
+    // *** KEY CHANGE: Mark react-helmet-async as external ***
+    // This tells esbuild NOT to bundle it, letting Node resolve it at runtime.
+    // We also keep other node_modules external.
+    packages: 'external',
+    // If 'packages: external' alone doesn't work, try explicitly:
+    // external: ['react-helmet-async', /* other node modules if needed */],
+
+    format: 'esm', // Match package.json type="module"
+    outdir: path.resolve(__dirname, '../dist'), // Output to dist/ (e.g., dist/index.js, dist/ssr.js)
+    sourcemap: true,
+    minify: false,
+    color: true,
+    logLevel: 'info',
+    plugins: [
+      tsconfigPathsPlugin(), // Handles @/*, @shared/*, @assets/* aliases
+    ],
+    loader: { // Still need loaders for assets imported within React code
+      '.css': 'empty',
+      '.scss': 'empty',
+      '.sass': 'empty',
+      '.less': 'empty',
+      '.png': 'empty',
+      '.jpg': 'empty',
+      '.jpeg': 'empty',
+      '.gif': 'empty',
+      '.svg': 'empty',
+      '.woff': 'empty',
+      '.woff2': 'empty',
+      '.ttf': 'empty',
+      '.eot': 'empty',
+    },
+  });
+  console.log('✅ Server build successful!');
+} catch (error) {
+  console.error('❌ Server build failed:');
+  process.exit(1);
+}
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+JavaScript
+IGNORE_WHEN_COPYING_END
+
+Run the build again: npm run build.
+
+Report the full output.
+
+Why this is the standard approach:
+
+Client uses standard imports, Vite handles it.
+
+Server uses standard imports.
+
+esbuild builds the server code, handles path aliases (tsconfigPathsPlugin), ignores assets (loader), and avoids bundling react-helmet-async directly (packages: 'external').
+
+The prerendering script (generate-prerendered.mjs) runs the output (dist/ssr.js). At this point, Node.js resolves the external react-helmet-async from node_modules. We are now relying on Node's native ESM/CJS interop for this specific package at runtime. If this still fails with the named export error, it points to a deeper issue with the react-helmet-async package structure or Node's handling of it, but let's try this clean approach first.
