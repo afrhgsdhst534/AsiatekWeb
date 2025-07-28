@@ -25,6 +25,7 @@ import ResetPasswordPage from "@/pages/reset-password-page";
 import ZapchastiIndexPage from "@/pages/zapchasti-index-page";
 import ZapchastiPage from "@/pages/zapchasti-page";
 import NotFound from "@/pages/not-found";
+import CatalogPage from './pages/CatalogPage'
 
 /* ─── layout ─── */
 import Header from "@/components/layout/header";
@@ -41,6 +42,8 @@ function AppRouter() {
         <Switch>
           <Route path="/" component={HomePage} />
           <Route path="/order" component={OrderPage} />
+          <Route path="/catalog" component={CatalogPage} />
+
           <Route path="/contact" component={ContactPage} />
           <Route path="/auth" component={AuthPage} />
           <Route path="/auth/forgot-password" component={ForgotPasswordPage} />
