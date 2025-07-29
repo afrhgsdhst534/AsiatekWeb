@@ -1,0 +1,17 @@
+# Allow all friendly crawlers
+User-agent: *
+Allow: /
+
+# Disallow backend/auth/user-specific areas
+Disallow: /dashboard/
+Disallow: /auth/
+Disallow: /api/
+
+# Specific instructions for Yandex (optional)
+User-agent: Yandex
+Disallow: /dashboard/
+Disallow: /auth/
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://asiatek.pro/sitemap.xml
